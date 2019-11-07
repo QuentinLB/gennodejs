@@ -757,15 +757,15 @@ def write_types(s, spec):
     """
     Generate typescript type definitions for a message
     """
-    fields = spec.fields()
+    fields = spec.parsed_fields()
     for field in fields:
-        s.write('import \{ {} \} from \'??\';').format(field[0])
+        s.write('import \{ {} \} from \'??\';').format(field.type)
     s.newline()
     
     s.write('export declare class {} \{'.format(spec.short_name))
     with Indent(s):
         for field in fields:
-            s.write('{}: {}'.format(field[1], field[0]))
+            s.write('{}: {}'.format(field.name, field.type))
     s.write('\}')
     s.newline()
 
