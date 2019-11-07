@@ -753,6 +753,23 @@ def write_srv_end(s, context, spec):
     s.write('};')
     s.newline()
 
+def write_types(s, spec):
+    """
+    Generate typescript type definitions for a message
+    """
+    fields = spec.fields()
+    for field in fields:
+        s.write('import \{ {} \} from \'??\';').format(field[0])
+    s.newline()
+    
+    s.write('export declare class {} \{'.format(spec.short_name))
+    with Indent(s):
+        for field in fields:
+            s.write('{}: {}'.format(field[1], field[0]))
+    s.write('\}')
+    s.newline()
+
+
 def generate_msg(pkg, files, out_dir, search_path):
     """
     Generate javascript code for all messages in a package
@@ -850,6 +867,17 @@ def generate_msg_from_spec(msg_context, spec, search_path, output_dir, package, 
     package_dir = os.path.dirname(output_dir)
     write_package_index(s, package_dir)
     with open('{}/_index.js'.format(package_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 4. Write the message .d.ts file
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    package_dir = os.path.dirname(output_dir)
+    write_types(s, package_dir)
+    with open('%s/%s.d.ts'%(output_dir, spec.short_name), 'w') as f:
         f.write(io.getvalue())
     io.close()
 
