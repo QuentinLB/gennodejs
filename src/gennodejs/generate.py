@@ -753,20 +753,66 @@ def write_srv_end(s, context, spec):
     s.write('};')
     s.newline()
 
+def get_js_builtin_type(t):
+
+    if is_fixnum(t) or is_integer(t) or is_float(t):
+        return 'number'
+    if is_bool(t):
+        return 'boolean'
+    if is_string(t):
+        return 'string'
+    if is_time(t):
+        return 'any' #how to handle this?
+    else:
+        return 'any' #this should never happen
+
+def get_js_base_type(f, spec_pkg):
+    if f.is_header:
+        return 'Header'
+    elif f.is_builtin:
+        return get_js_builtin_type(f.type.strip('[]'))
+    else:
+        p, t = f.type.split('/')
+        if p == spec_pkg:
+            # local dependency
+            return '{}'.format(t.strip('[]'))
+        else: 
+            return '{}.{}'.format(p, t.strip('[]'))
+
+def get_js_type(f, spec_pkg):
+    base_type = get_js_base_type(f, spec_pkg)
+    if f.is_array:
+        return 'Array<{}>'.format(base_type)
+    else:
+        return base_type
+
+
+
 def write_types(s, spec):
     """
     Generate typescript type definitions for a message
     """
-    fields = spec.parsed_fields()
-    for field in fields:
-        s.write('import \{ {} \} from \'??\';').format(field.type)
+    found_packages, local_deps = find_requires(spec)
+    for dep in local_deps:
+        s.write('import {{ {} }} from \'./{}\';'.format(dep, dep))
+    for pkg in found_packages:
+        s.write('import * as {} from \'../{}\''.format(pkg, pkg))
     s.newline()
     
-    s.write('export declare class {} \{'.format(spec.short_name))
+    fields = spec.parsed_fields()
+    s.write('export declare class {} {{'.format(spec.short_name))
     with Indent(s):
         for field in fields:
-            s.write('{}: {}'.format(field.name, field.type))
-    s.write('\}')
+            s.write('{}: {};'.format(field.name, get_js_type(field, spec.package)))
+
+        s.write('static serialize(obj, buffer, bufferOffset);')
+        s.write('static deserialize(buffer, bufferOffset=[0]): {};'.format(spec.short_name))
+        s.write('static getMessageSize(object): number;')
+        s.write('static datatype(): string;')
+        s.write('static md5sum(): string;')
+        s.write('static messageDefinition(): string;')
+        s.write('static Resolve(msg): {};'.format(spec.short_name))
+    s.write('}')
     s.newline()
 
 
@@ -876,7 +922,7 @@ def generate_msg_from_spec(msg_context, spec, search_path, output_dir, package, 
     io = StringIO()
     s = IndentedWriter(io)
     package_dir = os.path.dirname(output_dir)
-    write_types(s, package_dir)
+    write_types(s, spec)
     with open('%s/%s.d.ts'%(output_dir, spec.short_name), 'w') as f:
         f.write(io.getvalue())
     io.close()
