@@ -776,9 +776,9 @@ def get_js_base_type(f, spec_pkg):
         p, t = stripped_type.split('/')
         if p == spec_pkg:
             # local dependency
-            return '{}'.format(stripped_type)
+            return '{}'.format(t)
         else: 
-            return '{}.{}'.format(p, stripped_type)
+            return '{}.{}'.format(p, t)
 
 def get_js_type(f, spec_pkg):
     base_type = get_js_base_type(f, spec_pkg)
