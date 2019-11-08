@@ -762,22 +762,23 @@ def get_js_builtin_type(t):
     if is_string(t):
         return 'string'
     if is_time(t):
-        return t #return time or duration
+        return '{secs: number, nsecs: number}'
     else:
-        return 'any' #this should never happen
+        return 'any:{}'.format(t) #this should never happen
 
 def get_js_base_type(f, spec_pkg):
+    stripped_type = re.sub('\[.*?\]', '', f.type)
     if f.is_header:
         return 'Header'
     elif f.is_builtin:
-        return get_js_builtin_type(f.type.strip('[]'))
+        return get_js_builtin_type(stripped_type)
     else:
-        p, t = f.type.split('/')
+        p, t = stripped_type.split('/')
         if p == spec_pkg:
             # local dependency
-            return '{}'.format(t.strip('[]'))
+            return '{}'.format(stripped_type)
         else: 
-            return '{}.{}'.format(p, t.strip('[]'))
+            return '{}.{}'.format(p, stripped_type)
 
 def get_js_type(f, spec_pkg):
     base_type = get_js_base_type(f, spec_pkg)
