@@ -762,7 +762,7 @@ def get_js_builtin_type(t):
     if is_string(t):
         return 'string'
     if is_time(t):
-        return 'any' #how to handle this?
+        return t #return time or duration
     else:
         return 'any' #this should never happen
 
@@ -785,8 +785,6 @@ def get_js_type(f, spec_pkg):
         return 'Array<{}>'.format(base_type)
     else:
         return base_type
-
-
 
 def write_types(s, spec):
     """
