@@ -787,7 +787,7 @@ def get_js_type(f, spec_pkg):
     else:
         return base_type
 
-def write_types(s, spec):
+def write_msg_types(s, spec):
     """
     Generate typescript type definitions for a message
     """
@@ -798,6 +798,48 @@ def write_types(s, spec):
         s.write('import * as {} from \'../{}\''.format(pkg, pkg))
     s.newline()
     
+    fields = spec.parsed_fields()
+    s.write('export declare class {} {{'.format(spec.short_name))
+    with Indent(s):
+        for field in fields:
+            s.write('{}: {};'.format(field.name, get_js_type(field, spec.package)))
+
+        s.write('static serialize(obj, buffer, bufferOffset);')
+        s.write('static deserialize(buffer, bufferOffset=[0]): {};'.format(spec.short_name))
+        s.write('static getMessageSize(object): number;')
+        s.write('static datatype(): string;')
+        s.write('static md5sum(): string;')
+        s.write('static messageDefinition(): string;')
+        s.write('static Resolve(msg): {};'.format(spec.short_name))
+    s.write('}')
+    s.newline()
+
+def write_srv_types_requires(s, spec):
+    """
+    Write the imports section for srv type declarations
+    """
+    request_found_packages, request_local_deps = find_requires(spec.request)
+    response_found_packages, response_local_deps = find_requires(spec.response)
+    
+    found_packages = set(request_found_packages) | set(response_found_packages) # | is the union operator
+    local_deps = set(request_local_deps) | set(response_local_deps)
+
+    for dep in local_deps:
+        s.write('import {{ {} }} from \'./{}\';'.format(dep, dep))
+    for pkg in found_packages:
+        s.write('import * as {} from \'../{}\''.format(pkg, pkg))
+    s.newline()
+
+def write_srv_types_end():
+    """
+    Write exports section of srv types declaration
+    """
+    return
+
+def write_srv_component_types(s, spec):
+    """
+    Generate typescript type definitions for a service
+    """
     fields = spec.parsed_fields()
     s.write('export declare class {} {{'.format(spec.short_name))
     with Indent(s):
@@ -921,7 +963,7 @@ def generate_msg_from_spec(msg_context, spec, search_path, output_dir, package, 
     io = StringIO()
     s = IndentedWriter(io)
     package_dir = os.path.dirname(output_dir)
-    write_types(s, spec)
+    write_msg_types(s, spec)
     with open('%s/%s.d.ts'%(output_dir, spec.short_name), 'w') as f:
         f.write(io.getvalue())
     io.close()
@@ -977,5 +1019,19 @@ def generate_srv_from_spec(msg_context, spec, search_path, output_dir, package, 
     package_dir = os.path.dirname(output_dir)
     write_package_index(s, package_dir)
     with open('{}/_index.js'.format(package_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 4. Write the service .d.ts file
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    package_dir = os.path.dirname(output_dir)
+    write_srv_types_requires(s, spec)
+    write_srv_component_types(s, spec.request)
+    write_srv_component_types(s, spec.response)
+    write_srv_types_end()
+    with open('%s/%s.d.ts'%(output_dir, spec.short_name), 'w') as f:
         f.write(io.getvalue())
     io.close()
