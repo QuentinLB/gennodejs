@@ -856,6 +856,46 @@ def write_srv_component_types(s, spec):
     s.write('}')
     s.newline()
 
+def write_package_types_index(s, package, package_dir):
+    """
+    Write index.d.ts file for package
+    """
+    msgExists = os.path.exists(pjoin(package_dir, 'msg/_index.js'))
+    srvExists = os.path.exists(pjoin(package_dir, 'srv/_index.js'))
+    if (msgExists):
+        # find which messages we have .d.ts files for
+        # msgs = [m if m.endswith('.msg') for m in os.listdir(pjoin(package_dir, 'msg/'))]
+        #        msgs = [m if m.endswith('.msg') for m in os.listdir(pjoin(package_dir, 'msg/'))]
+        s.write('import * as m from \'./msg\'')
+    if (srvExists):
+        s.write('import * as s from \'./srv\'')
+    s.newline()
+    s.write('export namespace {} {{'.format(package))
+    with Indent(s):
+        if (msgExists):
+            s.write('export import msg = m;')
+        if (srvExists):
+            s.write('export import srv = s;')
+    s.write('}')
+    s.newline()
+
+def write_msg_types_index(s, msgs):
+    """
+    Generate index.d.ts file for msg module
+    """
+    for msg in msgs:
+        s.write('export {{ {} }} from \'./{}\';'.format(msg, msg))
+    s.newline()
+
+def write_srv_types_index(s, srvs):
+    """
+    Generate index.d.ts file for srv module
+    """
+    "Writes an index for the messages"
+    for srv in srvs:
+        s.write('export {{ {} }} from \'./{}\''.format(srv, srv))
+    s.newline()
+
 
 def generate_msg(pkg, files, out_dir, search_path):
     """
@@ -968,6 +1008,31 @@ def generate_msg_from_spec(msg_context, spec, search_path, output_dir, package, 
         f.write(io.getvalue())
     io.close()
 
+    ########################################
+    # 5. Write the msg/index.d.ts file
+    # This is being rewritten once per msg
+    # file, which is inefficient
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    write_msg_types_index(s, msgs)
+    with open('{}/index.d.ts'.format(output_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 6. Write the package index.d.ts file
+    # This is being rewritten once per msg
+    # file, which is inefficient
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    package_dir = os.path.dirname(output_dir)
+    write_package_types_index(s, package, package_dir)
+    with open('{}/index.d.ts'.format(package_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
 # t0 most of this could probably be refactored into being shared with messages
 def generate_srv_from_spec(msg_context, spec, search_path, output_dir, package, path):
     "Generate code from .srv file"
@@ -1033,5 +1098,30 @@ def generate_srv_from_spec(msg_context, spec, search_path, output_dir, package, 
     write_srv_component_types(s, spec.response)
     write_srv_types_end()
     with open('%s/%s.d.ts'%(output_dir, spec.short_name), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 5. Write the srv/index.d.ts file
+    # This is being rewritten once per srv
+    # file, which is inefficient
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    write_srv_types_index(s, srvs)
+    with open('{}/index.d.ts'.format(output_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 6. Write the package index.d.ts file
+    # This is being rewritten once per msg
+    # file, which is inefficient
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    package_dir = os.path.dirname(output_dir)
+    write_package_types_index(s, package, package_dir)
+    with open('{}/index.d.ts'.format(package_dir), 'w') as f:
         f.write(io.getvalue())
     io.close()
