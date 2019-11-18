@@ -20,6 +20,7 @@ import sys
 import os
 import traceback
 import re
+from functools import reduce
 from os.path import join as pjoin
 
 #import roslib.msgs
@@ -862,6 +863,8 @@ def write_package_types_index(s, package, package_dir):
     """
     msgExists = os.path.exists(pjoin(package_dir, 'msg/_index.js'))
     srvExists = os.path.exists(pjoin(package_dir, 'srv/_index.js'))
+
+    package_camel = reduce((lambda l, r: l + r.capitalize()), package.split('_'))
     if (msgExists):
         # find which messages we have .d.ts files for
         # msgs = [m if m.endswith('.msg') for m in os.listdir(pjoin(package_dir, 'msg/'))]
@@ -870,7 +873,7 @@ def write_package_types_index(s, package, package_dir):
     if (srvExists):
         s.write('import * as s from \'./srv\'')
     s.newline()
-    s.write('export namespace {} {{'.format(package))
+    s.write('export namespace {} {{'.format(package_camel))
     with Indent(s):
         if (msgExists):
             s.write('export import msg = m;')
