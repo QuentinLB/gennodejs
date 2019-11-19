@@ -770,7 +770,7 @@ def get_js_builtin_type(t):
 def get_js_base_type(f, spec_pkg):
     stripped_type = re.sub('\[.*?\]', '', f.type)
     if f.is_header:
-        return 'Header'
+        return 'std_msgs.stdMsgs.msg.Header'
     elif f.is_builtin:
         return get_js_builtin_type(stripped_type)
     else:
@@ -794,24 +794,27 @@ def write_msg_types(s, spec):
     """
     found_packages, local_deps = find_requires(spec)
     for dep in local_deps:
-        s.write('import {{ {} }} from \'./{}\';'.format(dep, dep))
+        s.write('import {{ {} }} from "./{}";'.format(dep, dep))
     for pkg in found_packages:
-        s.write('import * as {} from \'../{}\''.format(pkg, pkg))
-    s.newline()
+        s.write('import * as {} from "../../{}";'.format(pkg, pkg))
+    
+    # only put a newline if we wrote an import line
+    if len(local_deps) > 0 or len(found_packages) > 0:
+        s.newline()
     
     fields = spec.parsed_fields()
     s.write('export declare class {} {{'.format(spec.short_name))
     with Indent(s):
-        for field in fields:
-            s.write('{}: {};'.format(field.name, get_js_type(field, spec.package)))
+        s.write('static public serialize(obj, buffer, bufferOffset);')
+        s.write('static public deserialize(buffer, bufferOffset = [0]): {};'.format(spec.short_name))
+        s.write('static public getMessageSize(object): number;')
+        s.write('static public datatype(): string;')
+        s.write('static public md5sum(): string;')
+        s.write('static public messageDefinition(): string;')
+        s.write('static public Resolve(msg): {};'.format(spec.short_name))
 
-        s.write('static serialize(obj, buffer, bufferOffset);')
-        s.write('static deserialize(buffer, bufferOffset=[0]): {};'.format(spec.short_name))
-        s.write('static getMessageSize(object): number;')
-        s.write('static datatype(): string;')
-        s.write('static md5sum(): string;')
-        s.write('static messageDefinition(): string;')
-        s.write('static Resolve(msg): {};'.format(spec.short_name))
+        for field in fields:
+            s.write('public {}: {};'.format(field.name, get_js_type(field, spec.package)))
     s.write('}')
     s.newline()
 
@@ -826,9 +829,9 @@ def write_srv_types_requires(s, spec):
     local_deps = set(request_local_deps) | set(response_local_deps)
 
     for dep in local_deps:
-        s.write('import {{ {} }} from \'./{}\';'.format(dep, dep))
+        s.write('import {{ {} }} from "./{}";'.format(dep, dep))
     for pkg in found_packages:
-        s.write('import * as {} from \'../{}\''.format(pkg, pkg))
+        s.write('import * as {} from "../{}";'.format(pkg, pkg))
     s.newline()
 
 def write_srv_types_end():
@@ -844,16 +847,16 @@ def write_srv_component_types(s, spec):
     fields = spec.parsed_fields()
     s.write('export declare class {} {{'.format(spec.short_name))
     with Indent(s):
-        for field in fields:
-            s.write('{}: {};'.format(field.name, get_js_type(field, spec.package)))
-
         s.write('static serialize(obj, buffer, bufferOffset);')
-        s.write('static deserialize(buffer, bufferOffset=[0]): {};'.format(spec.short_name))
+        s.write('static deserialize(buffer, bufferOffset = [0]): {};'.format(spec.short_name))
         s.write('static getMessageSize(object): number;')
         s.write('static datatype(): string;')
         s.write('static md5sum(): string;')
         s.write('static messageDefinition(): string;')
         s.write('static Resolve(msg): {};'.format(spec.short_name))
+
+        for field in fields:
+            s.write('{}: {};'.format(field.name, get_js_type(field, spec.package)))
     s.write('}')
     s.newline()
 
@@ -869,9 +872,9 @@ def write_package_types_index(s, package, package_dir):
         # find which messages we have .d.ts files for
         # msgs = [m if m.endswith('.msg') for m in os.listdir(pjoin(package_dir, 'msg/'))]
         #        msgs = [m if m.endswith('.msg') for m in os.listdir(pjoin(package_dir, 'msg/'))]
-        s.write('import * as m from \'./msg\'')
+        s.write('import * as m from "./msg";')
     if (srvExists):
-        s.write('import * as s from \'./srv\'')
+        s.write('import * as s from "./srv";')
     s.newline()
     s.write('export namespace {} {{'.format(package_camel))
     with Indent(s):
@@ -887,7 +890,7 @@ def write_msg_types_index(s, msgs):
     Generate index.d.ts file for msg module
     """
     for msg in msgs:
-        s.write('export {{ {} }} from \'./{}\';'.format(msg, msg))
+        s.write('export {{ {} }} from "./{}";'.format(msg, msg))
     s.newline()
 
 def write_srv_types_index(s, srvs):
