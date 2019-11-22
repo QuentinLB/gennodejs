@@ -770,16 +770,17 @@ def get_js_builtin_type(t):
 def get_js_base_type(f, spec_pkg):
     stripped_type = re.sub('\[.*?\]', '', f.type)
     if f.is_header:
-        return 'std_msgs.stdMsgs.msg.Header'
+        return 'stdMsgs.msg.Header'
     elif f.is_builtin:
         return get_js_builtin_type(stripped_type)
     else:
         p, t = stripped_type.split('/')
+        package_camel = reduce((lambda l, r: l + r.capitalize()), p.split('_'))
         if p == spec_pkg:
             # local dependency
             return '{}'.format(t)
         else: 
-            return '{}.{}'.format(p, t)
+            return '{}.msg.{}'.format(package_camel, t)
 
 def get_js_type(f, spec_pkg):
     base_type = get_js_base_type(f, spec_pkg)
@@ -793,10 +794,12 @@ def write_msg_types(s, spec):
     Generate typescript type definitions for a message
     """
     found_packages, local_deps = find_requires(spec)
+
     for dep in local_deps:
         s.write('import {{ {} }} from "./{}";'.format(dep, dep))
     for pkg in found_packages:
-        s.write('import * as {} from "../../{}";'.format(pkg, pkg))
+        package_camel = reduce((lambda l, r: l + r.capitalize()), pkg.split('_'))
+        s.write('import {{ {} }} from "../../{}";'.format(package_camel, pkg))
     
     # only put a newline if we wrote an import line
     if len(local_deps) > 0 or len(found_packages) > 0:
