@@ -834,7 +834,7 @@ def write_srv_types_requires(s, spec):
     for dep in local_deps:
         s.write('import {{ {} }} from "../msg/{}";'.format(dep, dep))
     for pkg in found_packages:
-        s.write('import * as {} from "../{}";'.format(pkg, pkg))
+        s.write('import * as {} from "../../{}";'.format(pkg, pkg))
     s.newline()
 
 def write_srv_types_end():
