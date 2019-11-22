@@ -834,7 +834,8 @@ def write_srv_types_requires(s, spec):
     for dep in local_deps:
         s.write('import {{ {} }} from "../msg/{}";'.format(dep, dep))
     for pkg in found_packages:
-        s.write('import * as {} from "../../{}";'.format(pkg, pkg))
+        package_camel = reduce((lambda l, r: l + r.capitalize()), pkg.split('_'))
+        s.write('import {{ {} }} from "../../{}";'.format(package_camel, pkg))
     s.newline()
 
 def write_srv_types_end():
