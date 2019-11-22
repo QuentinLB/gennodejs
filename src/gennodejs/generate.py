@@ -805,8 +805,8 @@ def write_msg_types(s, spec):
     fields = spec.parsed_fields()
     s.write('export declare class {} {{'.format(spec.short_name))
     with Indent(s):
-        s.write('public static serialize(obj, buffer, bufferOffset);')
-        s.write('public static deserialize(buffer, bufferOffset = [0]): {};'.format(spec.short_name))
+        s.write('public static serialize(obj, buffer: Buffer, bufferOffset: Array<number>);')
+        s.write('public static deserialize(buffer: Buffer, bufferOffset: Array<number>): {};'.format(spec.short_name))
         s.write('public static getMessageSize(object): number;')
         s.write('public static datatype(): string;')
         s.write('public static md5sum(): string;')
@@ -847,8 +847,8 @@ def write_srv_component_types(s, spec):
     fields = spec.parsed_fields()
     s.write('export declare class {} {{'.format(spec.short_name))
     with Indent(s):
-        s.write('public static serialize(obj, buffer, bufferOffset);')
-        s.write('public static deserialize(buffer, bufferOffset = [0]): {};'.format(spec.short_name))
+        s.write('public static serialize(obj, buffer: Buffer, bufferOffset: Array<number>);')
+        s.write('public static deserialize(buffer: Buffer, bufferOffset: Array<number>): {};'.format(spec.short_name))
         s.write('public static getMessageSize(object): number;')
         s.write('public static datatype(): string;')
         s.write('public static md5sum(): string;')
