@@ -843,25 +843,32 @@ def write_srv_types_end():
     """
     return
 
-def write_srv_component_types(s, spec):
+def write_srv_component_namespace(s, spec):
+    s.write('export namespace {} {{'.format(spec.short_name))
+    with Indent(s):
+        write_srv_component_types(s, spec.request, 'Request')
+        write_srv_component_types(s, spec.response, 'Response')
+    s.write('}')
+    s.newline()
+
+def write_srv_component_types(s, spec, srvType):
     """
     Generate typescript type definitions for a service
     """
     fields = spec.parsed_fields()
-    s.write('export declare class {} {{'.format(spec.short_name))
+    s.write('class {} {{'.format(srvType))
     with Indent(s):
-        s.write('public static serialize(obj: {}, buffer: Buffer, bufferOffset: Array<number>): number;'.format(spec.short_name))
-        s.write('public static deserialize(buffer: Buffer, bufferOffset: Array<number>): {};'.format(spec.short_name))
-        s.write('public static getMessageSize(object: {}): number;'.format(spec.short_name))
+        s.write('public static serialize(obj: {}, buffer: Buffer, bufferOffset: Array<number>): number;'.format(srvType))
+        s.write('public static deserialize(buffer: Buffer, bufferOffset: Array<number>): {};'.format(srvType))
+        s.write('public static getMessageSize(object: {}): number;'.format(srvType))
         s.write('public static datatype(): string;')
         s.write('public static md5sum(): string;')
         s.write('public static messageDefinition(): string;')
-        s.write('public static Resolve(msg: {}): {};'.format(spec.short_name, spec.short_name))
+        s.write('public static Resolve(msg: {}): {};'.format(srvType, srvType))
 
         for field in fields:
             s.write('public {}: {};'.format(field.name, get_js_type(field, spec.package)))
     s.write('}')
-    s.newline()
 
 def write_package_types_index(s, package, package_dir):
     """
@@ -1103,8 +1110,7 @@ def generate_srv_from_spec(msg_context, spec, search_path, output_dir, package, 
     s = IndentedWriter(io)
     package_dir = os.path.dirname(output_dir)
     write_srv_types_requires(s, spec)
-    write_srv_component_types(s, spec.request)
-    write_srv_component_types(s, spec.response)
+    write_srv_component_namespace(s, spec)
     write_srv_types_end()
     with open('%s/%s.d.ts'%(output_dir, spec.short_name), 'w') as f:
         f.write(io.getvalue())
