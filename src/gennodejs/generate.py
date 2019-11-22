@@ -805,13 +805,13 @@ def write_msg_types(s, spec):
     fields = spec.parsed_fields()
     s.write('export declare class {} {{'.format(spec.short_name))
     with Indent(s):
-        s.write('static public serialize(obj, buffer, bufferOffset);')
-        s.write('static public deserialize(buffer, bufferOffset = [0]): {};'.format(spec.short_name))
-        s.write('static public getMessageSize(object): number;')
-        s.write('static public datatype(): string;')
-        s.write('static public md5sum(): string;')
-        s.write('static public messageDefinition(): string;')
-        s.write('static public Resolve(msg): {};'.format(spec.short_name))
+        s.write('public static serialize(obj, buffer, bufferOffset);')
+        s.write('public static deserialize(buffer, bufferOffset = [0]): {};'.format(spec.short_name))
+        s.write('public static getMessageSize(object): number;')
+        s.write('public static datatype(): string;')
+        s.write('public static md5sum(): string;')
+        s.write('public static messageDefinition(): string;')
+        s.write('public static Resolve(msg): {};'.format(spec.short_name))
 
         for field in fields:
             s.write('public {}: {};'.format(field.name, get_js_type(field, spec.package)))
@@ -847,16 +847,16 @@ def write_srv_component_types(s, spec):
     fields = spec.parsed_fields()
     s.write('export declare class {} {{'.format(spec.short_name))
     with Indent(s):
-        s.write('static serialize(obj, buffer, bufferOffset);')
-        s.write('static deserialize(buffer, bufferOffset = [0]): {};'.format(spec.short_name))
-        s.write('static getMessageSize(object): number;')
-        s.write('static datatype(): string;')
-        s.write('static md5sum(): string;')
-        s.write('static messageDefinition(): string;')
-        s.write('static Resolve(msg): {};'.format(spec.short_name))
+        s.write('public static serialize(obj, buffer, bufferOffset);')
+        s.write('public static deserialize(buffer, bufferOffset = [0]): {};'.format(spec.short_name))
+        s.write('public static getMessageSize(object): number;')
+        s.write('public static datatype(): string;')
+        s.write('public static md5sum(): string;')
+        s.write('public static messageDefinition(): string;')
+        s.write('public static Resolve(msg): {};'.format(spec.short_name))
 
         for field in fields:
-            s.write('{}: {};'.format(field.name, get_js_type(field, spec.package)))
+            s.write('public {}: {};'.format(field.name, get_js_type(field, spec.package)))
     s.write('}')
     s.newline()
 
