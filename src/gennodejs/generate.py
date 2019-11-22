@@ -939,9 +939,13 @@ def generate_srv(pkg, files, out_dir, search_path):
 
 def msg_list(pkg, search_path, ext):
     dir_list = search_path[pkg]
-    files = []
+    files = set()
+
     for d in dir_list:
-        files.extend([f for f in os.listdir(d) if f.endswith(ext)])
+        for f in os.listdir(d):
+            if f.endswith(ext) and not f in files:
+                files.add(f)
+
     return [f[:-len(ext)] for f in files]
 
 def generate_msg_from_spec(msg_context, spec, search_path, output_dir, package, msgs=None):
