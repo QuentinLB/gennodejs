@@ -20,6 +20,7 @@ import sys
 import os
 import traceback
 import re
+from functools import reduce
 from os.path import join as pjoin
 
 #import roslib.msgs
@@ -753,6 +754,166 @@ def write_srv_end(s, context, spec):
     s.write('};')
     s.newline()
 
+def get_js_builtin_type(t):
+
+    if is_fixnum(t) or is_integer(t) or is_float(t):
+        return 'number'
+    if is_bool(t):
+        return 'boolean'
+    if is_string(t):
+        return 'string'
+    if is_time(t):
+        return '{secs: number, nsecs: number}'
+    else:
+        return 'any:{}'.format(t) #this should never happen
+
+def get_js_base_type(f, spec_pkg):
+    stripped_type = re.sub('\[.*?\]', '', f.type)
+    if f.is_header:
+        return 'stdMsgs.msg.Header'
+    elif f.is_builtin:
+        return get_js_builtin_type(stripped_type)
+    else:
+        p, t = stripped_type.split('/')
+        package_camel = reduce((lambda l, r: l + r.capitalize()), p.split('_'))
+        if p == spec_pkg:
+            # local dependency
+            return '{}'.format(t)
+        else: 
+            return '{}.msg.{}'.format(package_camel, t)
+
+def get_js_type(f, spec_pkg):
+    base_type = get_js_base_type(f, spec_pkg)
+    if f.is_array:
+        return 'Array<{}>'.format(base_type)
+    else:
+        return base_type
+
+def write_msg_types(s, spec):
+    """
+    Generate typescript type definitions for a message
+    """
+    found_packages, local_deps = find_requires(spec)
+
+    for dep in local_deps:
+        s.write('import {{ {} }} from "./{}";'.format(dep, dep))
+    for pkg in found_packages:
+        package_camel = reduce((lambda l, r: l + r.capitalize()), pkg.split('_'))
+        s.write('import {{ {} }} from "../../{}";'.format(package_camel, pkg))
+    
+    # only put a newline if we wrote an import line
+    if len(local_deps) > 0 or len(found_packages) > 0:
+        s.newline()
+    
+    fields = spec.parsed_fields()
+    s.write('export declare class {} {{'.format(spec.short_name))
+    with Indent(s):
+        s.write('public static serialize(obj: {}, buffer: Buffer, bufferOffset: Array<number>): number;'.format(spec.short_name))
+        s.write('public static deserialize(buffer: Buffer, bufferOffset: Array<number>): {};'.format(spec.short_name))
+        s.write('public static getMessageSize(object: {}): number;'.format(spec.short_name))
+        s.write('public static datatype(): string;')
+        s.write('public static md5sum(): string;')
+        s.write('public static messageDefinition(): string;')
+        s.write('public static Resolve(msg: {}): {};'.format(spec.short_name, spec.short_name))
+
+        for field in fields:
+            s.write('public {}: {};'.format(field.name, get_js_type(field, spec.package)))
+    s.write('}')
+    s.newline()
+
+def write_srv_types_requires(s, spec):
+    """
+    Write the imports section for srv type declarations
+    """
+    request_found_packages, request_local_deps = find_requires(spec.request)
+    response_found_packages, response_local_deps = find_requires(spec.response)
+    
+    found_packages = set(request_found_packages) | set(response_found_packages) # | is the union operator
+    local_deps = set(request_local_deps) | set(response_local_deps)
+
+    for dep in local_deps:
+        s.write('import {{ {} }} from "../msg/{}";'.format(dep, dep))
+    for pkg in found_packages:
+        package_camel = reduce((lambda l, r: l + r.capitalize()), pkg.split('_'))
+        s.write('import {{ {} }} from "../../{}";'.format(package_camel, pkg))
+    s.newline()
+
+def write_srv_types_end():
+    """
+    Write exports section of srv types declaration
+    """
+    return
+
+def write_srv_component_namespace(s, spec):
+    s.write('export namespace {} {{'.format(spec.short_name))
+    with Indent(s):
+        write_srv_component_types(s, spec.request, 'Request')
+        write_srv_component_types(s, spec.response, 'Response')
+    s.write('}')
+    s.newline()
+
+def write_srv_component_types(s, spec, srvType):
+    """
+    Generate typescript type definitions for a service
+    """
+    fields = spec.parsed_fields()
+    s.write('class {} {{'.format(srvType))
+    with Indent(s):
+        s.write('public static serialize(obj: {}, buffer: Buffer, bufferOffset: Array<number>): number;'.format(srvType))
+        s.write('public static deserialize(buffer: Buffer, bufferOffset: Array<number>): {};'.format(srvType))
+        s.write('public static getMessageSize(object: {}): number;'.format(srvType))
+        s.write('public static datatype(): string;')
+        s.write('public static md5sum(): string;')
+        s.write('public static messageDefinition(): string;')
+        s.write('public static Resolve(msg: {}): {};'.format(srvType, srvType))
+
+        for field in fields:
+            s.write('public {}: {};'.format(field.name, get_js_type(field, spec.package)))
+    s.write('}')
+
+def write_package_types_index(s, package, package_dir):
+    """
+    Write index.d.ts file for package
+    """
+    msgExists = os.path.exists(pjoin(package_dir, 'msg/_index.js'))
+    srvExists = os.path.exists(pjoin(package_dir, 'srv/_index.js'))
+
+    package_camel = reduce((lambda l, r: l + r.capitalize()), package.split('_'))
+    if (msgExists):
+        # find which messages we have .d.ts files for
+        # msgs = [m if m.endswith('.msg') for m in os.listdir(pjoin(package_dir, 'msg/'))]
+        #        msgs = [m if m.endswith('.msg') for m in os.listdir(pjoin(package_dir, 'msg/'))]
+        s.write('import * as m from "./msg";')
+    if (srvExists):
+        s.write('import * as s from "./srv";')
+    s.newline()
+    s.write('export namespace {} {{'.format(package_camel))
+    with Indent(s):
+        if (msgExists):
+            s.write('export import msg = m;')
+        if (srvExists):
+            s.write('export import srv = s;')
+    s.write('}')
+    s.newline()
+
+def write_msg_types_index(s, msgs):
+    """
+    Generate index.d.ts file for msg module
+    """
+    for msg in msgs:
+        s.write('export {{ {} }} from "./{}";'.format(msg, msg))
+    s.newline()
+
+def write_srv_types_index(s, srvs):
+    """
+    Generate index.d.ts file for srv module
+    """
+    "Writes an index for the messages"
+    for srv in srvs:
+        s.write('export {{ {} }} from \'./{}\''.format(srv, srv))
+    s.newline()
+
+
 def generate_msg(pkg, files, out_dir, search_path):
     """
     Generate javascript code for all messages in a package
@@ -779,9 +940,13 @@ def generate_srv(pkg, files, out_dir, search_path):
 
 def msg_list(pkg, search_path, ext):
     dir_list = search_path[pkg]
-    files = []
+    files = set()
+
     for d in dir_list:
-        files.extend([f for f in os.listdir(d) if f.endswith(ext)])
+        for f in os.listdir(d):
+            if f.endswith(ext) and not f in files:
+                files.add(f)
+
     return [f[:-len(ext)] for f in files]
 
 def generate_msg_from_spec(msg_context, spec, search_path, output_dir, package, msgs=None):
@@ -853,6 +1018,42 @@ def generate_msg_from_spec(msg_context, spec, search_path, output_dir, package, 
         f.write(io.getvalue())
     io.close()
 
+    ########################################
+    # 4. Write the message .d.ts file
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    package_dir = os.path.dirname(output_dir)
+    write_msg_types(s, spec)
+    with open('%s/%s.d.ts'%(output_dir, spec.short_name), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 5. Write the msg/index.d.ts file
+    # This is being rewritten once per msg
+    # file, which is inefficient
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    write_msg_types_index(s, msgs)
+    with open('{}/index.d.ts'.format(output_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 6. Write the package index.d.ts file
+    # This is being rewritten once per msg
+    # file, which is inefficient
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    package_dir = os.path.dirname(output_dir)
+    write_package_types_index(s, package, package_dir)
+    with open('{}/index.d.ts'.format(package_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
 # t0 most of this could probably be refactored into being shared with messages
 def generate_srv_from_spec(msg_context, spec, search_path, output_dir, package, path):
     "Generate code from .srv file"
@@ -904,5 +1105,43 @@ def generate_srv_from_spec(msg_context, spec, search_path, output_dir, package, 
     package_dir = os.path.dirname(output_dir)
     write_package_index(s, package_dir)
     with open('{}/_index.js'.format(package_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 4. Write the service .d.ts file
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    package_dir = os.path.dirname(output_dir)
+    write_srv_types_requires(s, spec)
+    write_srv_component_namespace(s, spec)
+    write_srv_types_end()
+    with open('%s/%s.d.ts'%(output_dir, spec.short_name), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 5. Write the srv/index.d.ts file
+    # This is being rewritten once per srv
+    # file, which is inefficient
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    write_srv_types_index(s, srvs)
+    with open('{}/index.d.ts'.format(output_dir), 'w') as f:
+        f.write(io.getvalue())
+    io.close()
+
+    ########################################
+    # 6. Write the package index.d.ts file
+    # This is being rewritten once per msg
+    # file, which is inefficient
+    ########################################
+    io = StringIO()
+    s = IndentedWriter(io)
+    package_dir = os.path.dirname(output_dir)
+    write_package_types_index(s, package, package_dir)
+    with open('{}/index.d.ts'.format(package_dir), 'w') as f:
         f.write(io.getvalue())
     io.close()
